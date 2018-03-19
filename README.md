@@ -7,10 +7,10 @@ The data and models can be downloaded from: https://drive.google.com/open?id=1ju
 
 
 - `flickr8k_val_text.npy`: text read by crowd workers
-- `flicr8k_val_mfcc.npy`: mean MFCC features for each utterance
+- `flicr8k_val_mfcc.npy`:  mean MFCC features for each utterance
 - `flickr8k_val_conv.npy`: mean convolutional layer activations
-- `flickr8k_val_rec.npy`: mean recurrent layer activations (for each of 5 layers)
-- `flickr8k_val_emb.npy: utterance embeddings (after the self-attention layer)
+- `flickr8k_val_rec.npy`:  mean recurrent layer activations (for each of 5 layers)
+- `flickr8k_val_emb.npy`:  utterance embeddings (after the self-attention layer)
 
 The activations were extracted from model flickr8k-speech.zip, trained as described in:
 
