@@ -50,16 +50,17 @@ def save_flickr8k_val_activations():
     prov = getDataProvider('flickr8k', root='.', audio_kind='human.max1K.accel3.ord.mfcc')
     mfcc = numpy.array([s['audio'] for s in prov.iterSentences(split='val') ])
     numpy.save("flicr8k_val_mfcc.npy", mean(mfcc))
-    text = [ s['raw'] for s in prov.iterSentences(split='val') ]
+    text, spk = zip(*[ (s['raw'], s['speaker']) for s in prov.iterSentences(split='val') ])
     numpy.save("flickr8k_val_text.npy", text)
+    numpy.save("flickr8k_val_spk.npy", spk)
     logging.info("Loading model")
     model = task.load(model_path)
     logging.info("Extracting convolutional states")
-    numpy.save("flickr8k_val_conv.np", mean(audiovis.iter_conv_states(model, mfcc)))
+    numpy.save("flickr8k_val_conv.npy", mean(audiovis.iter_conv_states(model, mfcc)))
     logging.info("Extracting layer states")
-    numpy.save("flickr8k_val_rec.py", mean(audiovis.iter_layer_states(model, mfcc)))
+    numpy.save("flickr8k_val_rec.npy", mean(audiovis.iter_layer_states(model, mfcc)))
     logging.info("Extracting utterance embeddings")
-    numpy.save("flickr8k_val_emb.py", audiovis.encode_sentences(model, mfcc))
+    numpy.save("flickr8k_val_emb.npy", audiovis.encode_sentences(model, mfcc))
 
 def mean(it):
     return numpy.array([ x.mean(axis=0) for x in it ])
