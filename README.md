@@ -6,7 +6,8 @@ Flickr8k Data, validation. All files below contain utterance data in the same or
 The data and models can be downloaded from: https://drive.google.com/open?id=1junt1_4Rk-Xdw8omz6MxxPp4tYN-axCZ
 
 
-- `flickr8k_val_text.npy`: text read by crowd workers
+- `flickr8k_val_text.npy`: text of each utterance read by crowd workers
+- `flickr8k_val_spk.npy`: speaker ID for each utterances
 - `flicr8k_val_mfcc.npy`:  mean MFCC features for each utterance
 - `flickr8k_val_conv.npy`: mean convolutional layer activations
 - `flickr8k_val_rec.npy`:  mean recurrent layer activations (for each of 5 layers)
