@@ -10,7 +10,10 @@ setup(name='imaginet',
       license='MIT',
       packages=['imaginet','vg'],
       install_requires=[
-          'Theano',
-          'funktional==1.2'
+          'Theano==1.0.0rc1',
+          'funktional==1.2',
+          'sklearn==0.0',
+          'python_speech_features==0.6',
+          'soundfile==0.9.0.post1'
                     ],
       zip_safe=False)

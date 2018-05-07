@@ -42,25 +42,38 @@ def save_activations(audios, model_path, mfcc_path, conv_path, states_path, emb_
     logging.info("Extracting sentence embeddings")
     numpy.save(emb_path, audiovis.encode_sentences(model, mfccs))
 
+
 def save_flickr8k_val_activations():
+    save_val_activations(dataset='flickr8k')
+
+def save_places_val_activations():
+    save_val_activations(dataset='places')
+
+
+def save_val_activations(dataset='flickr8k'):
     logging.getLogger().setLevel('INFO')
     logging.info("Loading data")
-    model_path = "models/flickr8k-speech/flickr8k-speech.zip"
-    from imaginet.data_provider import getDataProvider
-    prov = getDataProvider('flickr8k', root='.', audio_kind='human.max1K.accel3.ord.mfcc')
+    model_path = "models/{}-speech/{}-speech.zip".format(dataset, dataset)
+    if dataset == 'flickr8k':
+        from imaginet.data_provider import getDataProvider
+        prov = getDataProvider('flickr8k', root='.', audio_kind='human.max1K.accel3.ord.mfcc')
+    elif dataset == 'places':
+        from vg.places_provider import getDataProvider
+        prov = getDataProvider('places', root='.', audio_kind='mfcc')
+
     mfcc = numpy.array([s['audio'] for s in prov.iterSentences(split='val') ])
-    numpy.save("flicr8k_val_mfcc.npy", mean(mfcc))
+    numpy.save("{}_val_mfcc.npy".format(dataset), mean(mfcc))
     text, spk = zip(*[ (s['raw'], s['speaker']) for s in prov.iterSentences(split='val') ])
-    numpy.save("flickr8k_val_text.npy", text)
-    numpy.save("flickr8k_val_spk.npy", spk)
+    numpy.save("{}_val_text.npy".format(dataset), text)
+    numpy.save("{}_val_spk.npy".format(dataset), spk)
     logging.info("Loading model")
     model = task.load(model_path)
     logging.info("Extracting convolutional states")
-    numpy.save("flickr8k_val_conv.npy", mean(audiovis.iter_conv_states(model, mfcc)))
+    numpy.save("{}_val_conv.npy".format(dataset), mean(audiovis.iter_conv_states(model, mfcc)))
     logging.info("Extracting layer states")
-    numpy.save("flickr8k_val_rec.npy", mean(audiovis.iter_layer_states(model, mfcc)))
+    numpy.save("{}_val_rec.npy".format(dataset), mean(audiovis.iter_layer_states(model, mfcc)))
     logging.info("Extracting utterance embeddings")
-    numpy.save("flickr8k_val_emb.npy", audiovis.encode_sentences(model, mfcc))
+    numpy.save("{}_val_emb.npy".format(dataset), audiovis.encode_sentences(model, mfcc))
 
 def mean(it):
     return numpy.array([ x.mean(axis=0) for x in it ])

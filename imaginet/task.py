@@ -131,7 +131,7 @@ def load(path):
         weights = numpy.load(buf, encoding='bytes')
         config  = json.loads(zf.read('config.json').decode('utf-8'))
         data  = pickle.loads(zf.read('data.pkl'))
-        task = pickle.loads(bytes(config['task'], 'utf-8'))
+        task = pickle.loads(bytes(config['task']))
     return GenericBundle(data, config, task, weights=weights)
 
 def representation(model, sents, batch_size=128):
