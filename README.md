@@ -36,5 +36,4 @@ The data and models can be downloaded from: https://drive.google.com/file/d/17OS
 - `places_val_rec.npy`:  mean recurrent layer activations (for each of 4 layers)
 - `places_val_emb.npy`:  utterance embeddings (after the self-attention layer)
 
-The mean activations (average over time) were extracted from model flickr8k-speech.zip, trained as described in:
-
+The mean activations (average over time) were extracted from model ...
