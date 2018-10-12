@@ -12,11 +12,10 @@ def activations(audios, model_path):
     """Return layer states and embeddings for sentences in audios,
     extracting MFCC features and applying a speech model to them.
     """
-    logging.info("Loading model")
-    model = task.load(model_path)
-
     logging.info("Extracting MFCC features")
     mfccs  = [ extract_mfcc(au) for au in audios]
+    logging.info("Loading model")
+    model = task.load(model_path)
     logging.info("Extracting convolutional states")
     conv_states = audiovis.conv_states(model, mfccs)
     logging.info("Extracting layer states")
@@ -29,11 +28,11 @@ def save_activations(audios, model_path, mfcc_path, conv_path, states_path, emb_
     """Return layer states and embeddings for sentences in audios,
     extracting MFCC features and applying a speech model to them.
     """
+    logging.info("Extracting MFCC features")
+    mfccs  = [ extract_mfcc(au) for au in audios]
     logging.info("Loading model")
     model = task.load(model_path)
     audios = list(audios)
-    logging.info("Extracting MFCC features")
-    mfccs  = [ extract_mfcc(au) for au in audios]
     numpy.save(mfcc_path, mfccs)
     logging.info("Extracting convolutional states")
     numpy.save(conv_path, audiovis.conv_states(model, mfccs))
@@ -98,11 +97,13 @@ def main():
     parser.add_argument('--synthesize', action='store_true', default=False,
                             help='Should audio be synthesized')
     args = parser.parse_args()
-    texts = [ line.strip() for line in open(args.texts)]
     if args.synthesize:
+        texts = [ line.strip() for line in open(args.texts)]
         audio.save_audio(texts, args.audio_dir)
-    audios = audio.load_audio(texts, args.audio_dir)
-    save_activations(audios, args.model,
+        audio_paths = audio.audio_paths(texts, args.audio_dir)
+    else:
+        audio_paths = [ line.strip() for line in open(args.texts)]
+    save_activations(audio_paths, args.model,
         args.mfcc, args.conv_states, args.layer_states, args.embeddings)
 
 

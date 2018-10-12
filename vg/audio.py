@@ -2,29 +2,23 @@
 import logging
 import python_speech_features as psf
 import scipy.io.wavfile as wav
-import numpy
+import numpy as np
 import hashlib
 import soundfile as sf
-
+import tts
+import os.path
+import StringIO
 
 def extract_mfcc(f, truncate=None):
     #logging.info("Extracting features from {}".format(f))
-    try:
-        (sig, rate) = sf.read(f)
-    except:
-        logging.warning("Error reading file {}".format(f))
-        return None      
-    try:
-        if truncate is not None:
-            max_len = truncate*rate
-            mfcc_feat = psf.mfcc(sig[:max_len], rate)
-        else:
-            mfcc_feat = psf.mfcc(sig, rate)
+    (sig, rate) = sf.read(f)
+    if truncate is not None:
+        max_len = truncate*rate
+        mfcc_feat = psf.mfcc(sig[:max_len], rate, nfft=1024)
+    else:
+        mfcc_feat = psf.mfcc(sig, rate, nfft=1024)
         return np.asarray(mfcc_feat, dtype='float32')
 
-    except:
-        logging.warning("Error extracting features from file {}".format(f))
-        return None
 
 
 def encode(s):
@@ -37,4 +31,26 @@ def load_audio(texts, audio_dir):
     for text in texts:
         path = encode(text)
         with open("{}/{}.wav".format(audio_dir, path), "rb") as au:
-            yield au.read()
+            yield StringIO.StringIO(au.read())
+
+def audio_paths(texts, audio_dir):
+    """Return a list of audio file paths for texts.
+    """
+    return [ "{}/{}.wav".format(audio_dir, encode(text)) for text in texts ]
+
+
+
+
+def save_audio(texts, audio_dir):
+    """Synthesize and save audio."""
+    logging.info("Storing wav files")
+    if not os.path.exists(audio_dir):
+        os.makedirs(audio_dir)
+    for text in texts:
+        logging.info("Synthesizing audio for {}".format(text))
+        audio = tts.synthesize(text)
+        logging.info("Storing audio for {}".format(text))
+        path = encode(text)
+        with open("{}/{}.wav".format(audio_dir, path), 'w') as out:
+            out.write(audio)
+

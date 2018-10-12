@@ -11,7 +11,7 @@ setup(name='imaginet',
       packages=['imaginet','vg'],
       install_requires=[
           'Theano==1.0.0rc1',
-          'funktional==1.2',
+          'funktional==1.3',
           'sklearn==0.0',
           'python_speech_features==0.6',
           'soundfile==0.9.0.post1'
