@@ -24,12 +24,12 @@ def activations(audios, model_path):
     embeddings = audiovis.encode_sentences(model, mfccs)
     return {'mfcc': mfccs, 'conv_states': conv_states, 'layer_states': states, 'embeddings': embeddings}
 
-def save_activations(audios, model_path, mfcc_path, conv_path, states_path, emb_path):
+def save_activations(audios, model_path, mfcc_path, conv_path, states_path, emb_path, accel=False):
     """Return layer states and embeddings for sentences in audios,
     extracting MFCC features and applying a speech model to them.
     """
     logging.info("Extracting MFCC features")
-    mfccs  = [ extract_mfcc(au) for au in audios]
+    mfccs  = [ extract_mfcc(au, format='mp3', accel=accel) for au in audios]
     logging.info("Loading model")
     model = task.load(model_path)
     audios = list(audios)
@@ -80,12 +80,14 @@ def mean(it):
 def main():
     logging.getLogger().setLevel('INFO')
     parser = argparse.ArgumentParser()
-    parser.add_argument('texts', default=None,
-                            help='Path to file with list of audio files')
+    parser.add_argument('input', default=None,
+                            help='Path to file with list of audio files to process, or sentences to synthesize.')
     parser.add_argument('--model', default="models/flickr8k-speech/flickr8k-speech.zip",
                             help='Path to file with model')
     parser.add_argument('--mfcc', default='mfcc.npy',
                             help='Path to file where MFCCs will be stored')
+    parser.add_argument('--accel', action='store_true', default=False,
+                            help='Extract delta and acceleration features in addition to plain MFCC features')
     parser.add_argument('--layer_states', default='states.npy',
                             help='Path to file where layer states will be stored')
     parser.add_argument('--conv_states', default='conv_states.npy',
@@ -95,16 +97,17 @@ def main():
     parser.add_argument('--audio_dir', default="/tmp",
                             help='Path to directory where audio is stored')
     parser.add_argument('--synthesize', action='store_true', default=False,
-                            help='Should audio be synthesized')
+                            help='Should audio be synthesized. If true `input` is assumed to be a file with sentences to synthesize.')
+
     args = parser.parse_args()
     if args.synthesize:
-        texts = [ line.strip() for line in open(args.texts)]
+        texts = [ line.strip() for line in open(args.input)]
         audio.save_audio(texts, args.audio_dir)
         audio_paths = audio.audio_paths(texts, args.audio_dir)
     else:
-        audio_paths = [ line.strip() for line in open(args.texts)]
+        audio_paths = [ line.strip() for line in open(args.input)]
     save_activations(audio_paths, args.model,
-        args.mfcc, args.conv_states, args.layer_states, args.embeddings)
+        args.mfcc, args.conv_states, args.layer_states, args.embeddings, accel=args.accel)
 
 
 if __name__=='__main__':

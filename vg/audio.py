@@ -5,20 +5,42 @@ import scipy.io.wavfile as wav
 import numpy as np
 import hashlib
 import soundfile as sf
+import pydub
 import tts
 import os.path
 import StringIO
 
-def extract_mfcc(f, truncate=None):
+def read_mp3(f):
+    seg = pydub.AudioSegment.from_mp3(f)
+    rate, sig = wav.read(StringIO.StringIO(seg.export(StringIO.StringIO(), format='wav').getvalue()))
+    return (sig, rate)
+
+def extract_mfcc(f, truncate=None, format='wav', accel=False):
     #logging.info("Extracting features from {}".format(f))
-    (sig, rate) = sf.read(f)
+    if format == 'mp3':
+        (sig, rate) = read_mp3(f)
+    else:    
+        (sig, rate) = sf.read(f)
+
     if truncate is not None:
         max_len = truncate*rate
         mfcc_feat = psf.mfcc(sig[:max_len], rate, nfft=1024)
     else:
         mfcc_feat = psf.mfcc(sig, rate, nfft=1024)
+    if accel:
+        return add_accel(np.asarray(mfcc_feat, dtype='float32'))
+    else:
         return np.asarray(mfcc_feat, dtype='float32')
 
+def delta(v, N=2, offset=1):
+    d = np.zeros_like(v[:, offset:])
+    for t in range(0, d.shape[0]):
+        Z = 2 * sum(n**2 for n in range(1, N+1))
+        d[t,:] = sum(n * (v[min(t+n, v.shape[0]-1), offset:]-v[max(t-n, 0), offset:]) for n in range(1,N+1)) / Z
+    return d
+
+def add_accel(row):
+    return np.hstack([row, delta(row, N=2, offset=1), delta(delta(row, N=2, offset=1), offset=0)])
 
 
 def encode(s):
