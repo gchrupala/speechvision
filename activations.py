@@ -59,7 +59,10 @@ def save_val_activations(dataset='flickr8k'):
     elif dataset == 'places':
         from vg.places_provider import getDataProvider
         prov = getDataProvider('places', root='.', audio_kind='mfcc')
-
+    elif dataset == 'coco':
+        from imaginet.data_provider import getDataProvider
+        prov = getDataProvider('coco', root='.', audio_kind='mfcc')
+        
     mfcc = numpy.array([s['audio'] for s in prov.iterSentences(split='val') ])
     numpy.save("{}_val_mfcc.npy".format(dataset), mean(mfcc))
     text, spk = zip(*[ (s['raw'], s['speaker']) for s in prov.iterSentences(split='val') ])

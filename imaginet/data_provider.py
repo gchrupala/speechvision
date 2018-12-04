@@ -14,13 +14,13 @@ import numpy
 import csv
 
 class BasicDataProvider:
-  def __init__(self, dataset, root='.', extra_train=False, audio_kind='fbank'):
+  def __init__(self, dataset, root='.', extra_train=False, audio_kind='fbank', load_img=True):
     self.dataset_name = dataset
     self.root = root
     # !assumptions on folder structure
     self.dataset_root = os.path.join(self.root, 'data', dataset)
     self.image_root = os.path.join(self.root, 'data', dataset, 'imgs')
-
+    self.load_img = load_img
     # load the dataset into memory
     dataset_path = os.path.join(self.dataset_root, 'dataset.json')
     ipa_path     = os.path.join(self.dataset_root, 'dataset.ipa.jsonl.gz')
@@ -65,9 +65,11 @@ class BasicDataProvider:
 
     # load the image features into memory
     features_path = os.path.join(self.dataset_root, 'vgg_feats.mat')
-
-    features_struct = scipy.io.loadmat(features_path)
-    self.features = features_struct['feats']
+    if self.load_img:
+        features_struct = scipy.io.loadmat(features_path)
+        self.features = features_struct['feats']
+    else:
+        self.features = None
 
     # group images by their train/val/test split into a dictionary -> list structure
     self.split = defaultdict(list)
@@ -157,13 +159,13 @@ class BasicDataProvider:
     for i in ix:
       yield self._getImage(imglist[i])
 
-def getDataProvider(dataset, root='.', extra_train=False, audio_kind='fbank'):
+def getDataProvider(dataset, root='.', extra_train=False, audio_kind='fbank', load_img=True):
   """ we could intercept a special dataset and return different data providers """
   assert dataset in ['flickr8k', 'flickr30k', 'coco', 'coco+flickr30k'], 'dataset %s unknown' % (dataset, )
   if dataset == 'coco+flickr30k':
     return CombinedDataProvider(datasets=['coco', 'flickr30k'], root=root, extra_train=extra_train, audio_kind=audio_kind)
   else:
-    return BasicDataProvider(dataset, root, extra_train=extra_train, audio_kind=audio_kind)
+    return BasicDataProvider(dataset, root, extra_train=extra_train, audio_kind=audio_kind, load_img=load_img)
 
 class CombinedDataProvider(object):
 
