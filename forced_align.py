@@ -1,8 +1,8 @@
 import json
 import multiprocessing
 import logging
-import imaginet.defn.audiovis_rhn as audiovis
 import numpy
+import numpy as np
 
 ROOT = "/home/gchrupala/repos/reimaginet/data/synthetically-spoken-coco/mp3"
 nthreads = multiprocessing.cpu_count()
@@ -84,7 +84,7 @@ def phoneme_train_data(alignment_path="data/coco/dataset.val.fa.json",
     """Generate data for training a phoneme decoding model."""
     import imaginet.data_provider as dp
     import imaginet.task as task
-
+    import imaginet.defn.audiovis_rhn as audiovis
     logging.getLogger().setLevel('INFO')
     logging.info("Loading alignments")
     data = {}
@@ -127,4 +127,67 @@ def save_fa_data(data_state, prefix=""):
     numpy.save(prefix + "features.npy", X)
     numpy.save(prefix + "phonemes.npy", y)
 
-    
+def phoneme_test_data(mp3_path="ganong", info_path="ganong-coco/ganong.csv", rep_path="ganong-coco"):
+    """Generate data for ganong experiment"""
+    import pandas as pd
+    logging.basicConfig(level=logging.INFO)
+    data = pd.read_csv(info_path)
+    try:
+        fa = json.load(open('ganong-fa.json'))
+    except FileNotFoundError:
+        
+        fa = []    
+        for i in range(data.shape[0]):
+            transcript = data.iloc[i]['transcript']
+            path = data.iloc[i]['path']
+            logging.info("Processing file {}".format(path))
+            result = json.loads(align(path, transcript).to_json())
+            result['path'] =  path
+            fa.append(result)
+        json.dump(fa, open('ganong-fa.json', 'w'))
+    FA = dict((utt['path'], utt) for utt in fa)
+    alignment = [ FA[data.iloc[i]['path']] for i in range(data.shape[0]) ]
+    logging.info("Extracting MFCC examples")
+    states = np.load(rep_path + "/mfcc.npy", encoding='bytes')
+    save_fa_data([phoneme for (utt, state) in zip(alignment, states) for phoneme in slices(utt, state) ], 
+                  prefix="ganong-coco/test_mfcc_")
+    logging.info("Extracting convolutional examples")
+    states = np.load(rep_path + "/conv_states.npy", encoding='bytes')
+    save_fa_data([phoneme for (utt, state) in zip(alignment, states) for phoneme in slices(utt, state, index=index) ], 
+                  prefix="ganong-coco/test_conv_")
+    logging.info("Extracting recurrent examples")
+    states = np.load(rep_path + "/states.npy", encoding='bytes')
+    for layer in range(0,5):
+        def aggregate(x):
+            return x[:,layer,:].mean(axis=0)
+        save_fa_data([phoneme for (utt, state) in zip(alignment, states) 
+                      for phoneme in slices(utt, state, index=index, aggregate=aggregate) ],
+                      prefix="ganong-coco/test_rec{}_".format(layer))
+
+def train_test_split(X, y):
+    I = (X.shape[0]//3)*2
+    X_train = X[:I, :]
+    y_train = y[:I]
+    X_val = X[I:,:]
+    y_val = y[I:]
+    return X_train, X_val, y_train, y_val
+
+def decoding(rep, directory="."):
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.linear_model import LogisticRegression
+    model = LogisticRegression(solver='sag')     
+    X = np.load(directory  + "/" + rep + "_features.npy")
+    y = np.load(directory  + "/" + rep + "_phonemes.npy")
+    X_train, X_val, y_train, y_val = train_test_split(X, y)
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    model.fit(X_train, y_train)
+    X_val = scaler.transform(X_val)
+    val_score = 1-model.score(X_val, y_val)
+    W = np.load(directory  + "/" + "test_" + rep + "_features.npy")
+    W = scaler.transform(W)
+    z = np.load(directory  + "/" + "test_" + rep + "_phonemes.npy")
+    test_score = 1-model.score(W, z)
+    return (val_score, test_score)
+
