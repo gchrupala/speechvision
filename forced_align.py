@@ -127,13 +127,16 @@ def save_fa_data(data_state, prefix=""):
     numpy.save(prefix + "features.npy", X)
     numpy.save(prefix + "phonemes.npy", y)
 
-def phoneme_test_data(mp3_path="ganong", info_path="ganong-coco/ganong.csv", rep_path="ganong-coco"):
+def phoneme_test_data(mp3_path="ganong", 
+                      info_path="ganong-coco/ganong.csv", 
+                      rep_path="ganong-coco", 
+                      fa_path='ganong-fa.json'):
     """Generate data for ganong experiment"""
     import pandas as pd
     logging.basicConfig(level=logging.INFO)
     data = pd.read_csv(info_path)
     try:
-        fa = json.load(open('ganong-fa.json'))
+        fa = json.load(open(fa_path))
     except FileNotFoundError:
         
         fa = []    
@@ -144,17 +147,17 @@ def phoneme_test_data(mp3_path="ganong", info_path="ganong-coco/ganong.csv", rep
             result = json.loads(align(path, transcript).to_json())
             result['path'] =  path
             fa.append(result)
-        json.dump(fa, open('ganong-fa.json', 'w'))
+        json.dump(fa, open(fa_path, 'w'))
     FA = dict((utt['path'], utt) for utt in fa)
     alignment = [ FA[data.iloc[i]['path']] for i in range(data.shape[0]) ]
     logging.info("Extracting MFCC examples")
     states = np.load(rep_path + "/mfcc.npy", encoding='bytes')
     save_fa_data([phoneme for (utt, state) in zip(alignment, states) for phoneme in slices(utt, state) ], 
-                  prefix="ganong-coco/test_mfcc_")
+                  prefix=rep_path + "/test_mfcc_")
     logging.info("Extracting convolutional examples")
     states = np.load(rep_path + "/conv_states.npy", encoding='bytes')
     save_fa_data([phoneme for (utt, state) in zip(alignment, states) for phoneme in slices(utt, state, index=index) ], 
-                  prefix="ganong-coco/test_conv_")
+                  prefix=rep_path + "/test_conv_")
     logging.info("Extracting recurrent examples")
     states = np.load(rep_path + "/states.npy", encoding='bytes')
     for layer in range(0,5):
@@ -162,7 +165,7 @@ def phoneme_test_data(mp3_path="ganong", info_path="ganong-coco/ganong.csv", rep
             return x[:,layer,:].mean(axis=0)
         save_fa_data([phoneme for (utt, state) in zip(alignment, states) 
                       for phoneme in slices(utt, state, index=index, aggregate=aggregate) ],
-                      prefix="ganong-coco/test_rec{}_".format(layer))
+                      prefix=rep_path + "/test_rec{}_".format(layer))
 
 def train_test_split(X, y):
     I = (X.shape[0]//3)*2
@@ -176,7 +179,7 @@ def decoding(rep, directory="."):
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.preprocessing import StandardScaler
     from sklearn.linear_model import LogisticRegression
-    model = LogisticRegression(solver='sag')     
+    model = LogisticRegression(solver='sag', random_state=123)     
     X = np.load(directory  + "/" + rep + "_features.npy")
     y = np.load(directory  + "/" + rep + "_phonemes.npy")
     X_train, X_val, y_train, y_val = train_test_split(X, y)
