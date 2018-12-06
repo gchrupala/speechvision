@@ -15,7 +15,7 @@ def read_mp3(f):
     rate, sig = wav.read(StringIO.StringIO(seg.export(StringIO.StringIO(), format='wav').getvalue()))
     return (sig, rate)
 
-def extract_mfcc(f, truncate=None, format='wav', accel=False):
+def extract_mfcc(f, truncate=None, format='wav', accel=False, nfft=512):
     #logging.info("Extracting features from {}".format(f))
     if format == 'mp3':
         (sig, rate) = read_mp3(f)
@@ -24,9 +24,9 @@ def extract_mfcc(f, truncate=None, format='wav', accel=False):
 
     if truncate is not None:
         max_len = truncate*rate
-        mfcc_feat = psf.mfcc(sig[:max_len], rate, nfft=1024)
+        mfcc_feat = psf.mfcc(sig[:max_len], rate, nfft=nfft)
     else:
-        mfcc_feat = psf.mfcc(sig, rate, nfft=1024)
+        mfcc_feat = psf.mfcc(sig, rate, nfft=nfft)
     if accel:
         return add_accel(np.asarray(mfcc_feat, dtype='float32'))
     else:
