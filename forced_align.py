@@ -3,6 +3,7 @@ import multiprocessing
 import logging
 import numpy
 import numpy as np
+import pandas as pd
 
 ROOT = "/home/gchrupala/repos/reimaginet/data/synthetically-spoken-coco/mp3"
 nthreads = multiprocessing.cpu_count()
@@ -129,7 +130,6 @@ def save_fa_data(data_state, prefix=""):
     numpy.save(prefix + "phonemes.npy", y)
 
 def run_gentle(mp3_path):
-    import pandas as pd
     logging.basicConfig(level=logging.INFO)
     data = pd.read_csv(mp3_path + "/info.csv")
     fa_path = "{}/fa.json".format(mp3_path)
@@ -139,18 +139,20 @@ def run_gentle(mp3_path):
             path = mp3_path + "/" + data.iloc[i]['path']
             logging.info("Processing file {}".format(path))
             result = json.loads(align(path, transcript).to_json())
-            result['path'] =  path
+            result['path'] =  data.iloc[i]['path']
             fa.append(result)
     json.dump(fa, open(fa_path, 'w'))
     
 def phoneme_test_data(mp3_path="ganong", rep_path="ganong-coco"): 
     """Generate data for ganong experiment"""
     try:
+        fa_path = mp3_path + "/fa.json"
         fa = json.load(open(fa_path))
     except:
         run_gentle(mp3_path)
         fa = json.load(open(fa_path))
     FA = dict((utt['path'], utt) for utt in fa)
+    data = pd.read_csv(mp3_path + "/info.csv")  
     alignment = [ FA[data.iloc[i]['path']] for i in range(data.shape[0]) ]
     logging.info("Extracting MFCC examples")
     states = np.load(rep_path + "/mfcc.npy", encoding='bytes')
@@ -197,11 +199,16 @@ def decoding(rep, directory="."):
     return (val_score, test_score)
 
 
-def run_decoding(paths, mp3path, rep="mfcc", model_type='coco'):
+def run_decoding(mp3_path, rep="mfcc", model_type='coco'):
+    import os
+    import os.path
     import activations as A
-    audio_paths = [ line.strip() for line in open(paths)]
+    data = pd.read_csv(mp3_path + "/info.csv")
+    audio_paths = [ mp3_path + "/" + path for  path in data['path'].as_matrix() ]
     model = "models/{}-speech.zip".format(model_type)
-    directory = "{}-{}".format(mp3path, model_type)
+    directory = "{}-{}".format(mp3_path, model_type)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
     A.save_activations(audio_paths, model, 
                        directory + "/mfcc.npy", 
                        directory + "/conv_states.npy", 
@@ -217,6 +224,6 @@ def run_decoding(paths, mp3path, rep="mfcc", model_type='coco'):
                       directory=directory)
     else:
         raise NotImplementedError
-    phoneme_test_data(mp3_path=mp3path, rep_path=directory)
+    phoneme_test_data(mp3_path=mp3_path, rep_path=directory)
     print(decoding(rep, directory=directory))
 
