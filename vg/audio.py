@@ -6,7 +6,6 @@ import numpy as np
 import hashlib
 import soundfile as sf
 import pydub
-import tts
 import os.path
 import StringIO
 
@@ -65,6 +64,7 @@ def audio_paths(texts, audio_dir):
 
 def save_audio(texts, audio_dir):
     """Synthesize and save audio."""
+    import tts
     logging.info("Storing wav files")
     if not os.path.exists(audio_dir):
         os.makedirs(audio_dir)
