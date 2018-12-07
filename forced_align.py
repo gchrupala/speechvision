@@ -12,10 +12,13 @@ def on_progress(p):
     for k,v in p.items():
         logging.debug("%s: %s" % (k, v))
 
-
-def align(audiopath, transcript):
+try:
     import gentle
     resources = gentle.Resources()
+except:
+    pass
+
+def align(audiopath, transcript):
     logging.info("converting audio to 8K sampled wav")
     with gentle.resampled(audiopath) as wavfile:
         logging.info("starting alignment")
@@ -82,7 +85,8 @@ def phoneme_train_data(alignment_path="data/coco/dataset.val.fa.json",
                   dataset_path="data/coco/dataset.json",
                   model_path="models/coco-speech.zip",
                   max_size=5000,
-                  directory="."):
+                  directory=".",
+                  dataset='coco'):
     """Generate data for training a phoneme decoding model."""
     import imaginet.data_provider as dp
     import imaginet.task as task
@@ -94,7 +98,10 @@ def phoneme_train_data(alignment_path="data/coco/dataset.val.fa.json",
         item = json.loads(line)
         data[item['sentid']] = item
     logging.info("Loading audio features")
-    prov = dp.getDataProvider('coco', root='.', audio_kind='mfcc', load_img=False)
+    if dataset == 'coco':
+        prov = dp.getDataProvider('coco', root='.', audio_kind='mfcc', load_img=False)
+    elif dataset == 'flickr8k':
+        prov = dp.getDataProvider('flickr8k', root='.', audio_kind='human.max1K.accel3.ord.mfcc', load_img=False)
     val = list(prov.iterSentences(split='val'))
     logging.info("Loading RHN model")
     model_rhn = task.load(model_path)

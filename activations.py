@@ -24,12 +24,12 @@ def activations(audios, model_path):
     embeddings = audiovis.encode_sentences(model, mfccs)
     return {'mfcc': mfccs, 'conv_states': conv_states, 'layer_states': states, 'embeddings': embeddings}
 
-def save_activations(audios, model_path, mfcc_path, conv_path, states_path, emb_path, accel=False):
+def save_activations(audios, model_path, mfcc_path, conv_path, states_path, emb_path, accel=False, nfft=512):
     """Return layer states and embeddings for sentences in audios,
     extracting MFCC features and applying a speech model to them.
     """
     logging.info("Extracting MFCC features")
-    mfccs  = [ extract_mfcc(au, format='mp3', accel=accel) for au in audios]
+    mfccs  = [ extract_mfcc(au, format='mp3', accel=accel, nfft=nfft) for au in audios]
     logging.info("Loading model")
     model = task.load(model_path)
     audios = list(audios)
