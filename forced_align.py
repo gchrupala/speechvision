@@ -91,6 +91,8 @@ def phoneme_train_data(alignment_path="data/coco/dataset.val.fa.json",
     import imaginet.data_provider as dp
     import imaginet.task as task
     import imaginet.defn.audiovis_rhn as audiovis
+    L = 5 if dataset == 'coco' else 4
+    S = 3 if dataset == 'coco' else 2
     logging.getLogger().setLevel('INFO')
     logging.info("Loading alignments")
     data = {}
@@ -117,22 +119,27 @@ def phoneme_train_data(alignment_path="data/coco/dataset.val.fa.json",
     logging.info("Extracting convo states")
     states = audiovis.conv_states(model_rhn, [ sent['audio'] for utt,sent in data_filter ])
     data_state =  [phoneme for i in range(len(data_filter))
-                   for phoneme in slices(data_filter[i][0], states[i], index=index) ]
+                   for phoneme in slices(data_filter[i][0], states[i], index=lambda x: index(x, stride=S)) ]
     save_fa_data(data_state, prefix=directory + "/conv_")
     
     logging.info("Extracting recurrent layer states")
     states = audiovis.layer_states(model_rhn, [ sent['audio'] for utt,sent in data_filter ], batch_size=32)
-    for layer in range(0,5):
+
+    for layer in range(0,L):
         def aggregate(x):
             return x[:,layer,:].mean(axis=0)
         data_state =  [phoneme for i in range(len(data_filter))
-                       for phoneme in slices(data_filter[i][0], states[i], index=index, aggregate=aggregate) ]
+                       for phoneme in slices(data_filter[i][0], states[i], index=lambda x: index(x, stride=S), aggregate=aggregate) ]
         save_fa_data(data_state, prefix=directory + "/rec{}_".format(layer))
         
 def save_fa_data(data_state, prefix=""):
     y, X = zip(*data_state)
     X = numpy.vstack(X)
     y = numpy.array(y)
+    # Get rid of NaNs
+    ix = np.isnan(X.sum(axis=1))
+    X = X[~ix]
+    y = y[~ix]
     numpy.save(prefix + "features.npy", X)
     numpy.save(prefix + "phonemes.npy", y)
 
@@ -150,8 +157,11 @@ def run_gentle(mp3_path):
             fa.append(result)
     json.dump(fa, open(fa_path, 'w'))
     
-def phoneme_test_data(mp3_path="ganong", rep_path="ganong-coco"): 
+def phoneme_test_data(mp3_path="ganong", dataset='coco'): 
     """Generate data for ganong experiment"""
+    rep_path = mp3_path + "-" + dataset
+    L = 5 if dataset == 'coco' else 4
+    S = 3 if dataset == 'coco' else 2
     try:
         fa_path = mp3_path + "/fa.json"
         fa = json.load(open(fa_path))
@@ -167,15 +177,15 @@ def phoneme_test_data(mp3_path="ganong", rep_path="ganong-coco"):
                   prefix=rep_path + "/test_mfcc_")
     logging.info("Extracting convolutional examples")
     states = np.load(rep_path + "/conv_states.npy", encoding='bytes')
-    save_fa_data([phoneme for (utt, state) in zip(alignment, states) for phoneme in slices(utt, state, index=index) ], 
+    save_fa_data([phoneme for (utt, state) in zip(alignment, states) for phoneme in slices(utt, state, index=lambda x: index(x, stride=S)) ], 
                   prefix=rep_path + "/test_conv_")
     logging.info("Extracting recurrent examples")
     states = np.load(rep_path + "/states.npy", encoding='bytes')
-    for layer in range(0,5):
+    for layer in range(0, L):
         def aggregate(x):
             return x[:,layer,:].mean(axis=0)
         save_fa_data([phoneme for (utt, state) in zip(alignment, states) 
-                      for phoneme in slices(utt, state, index=index, aggregate=aggregate) ],
+                      for phoneme in slices(utt, state, index=lambda x: index(x, stride=S), aggregate=aggregate) ],
                       prefix=rep_path + "/test_rec{}_".format(layer))
 
 def train_test_split(X, y):
@@ -186,13 +196,16 @@ def train_test_split(X, y):
     y_val = y[I:]
     return X_train, X_val, y_train, y_val
 
-def decoding(rep, directory="."):
+def decoding(rep, directory=".", max_size=None):
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.preprocessing import StandardScaler
     from sklearn.linear_model import LogisticRegression
-    model = LogisticRegression(solver='sag', random_state=123)     
+    model = LogisticRegression(solver='lbfgs', random_state=123)     
     X = np.load(directory  + "/" + rep + "_features.npy")
     y = np.load(directory  + "/" + rep + "_phonemes.npy")
+    if max_size is not None:
+        X = X[:max_size,:]
+        y = y[:max_size]
     X_train, X_val, y_train, y_val = train_test_split(X, y)
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
@@ -206,7 +219,7 @@ def decoding(rep, directory="."):
     return (val_score, test_score)
 
 
-def run_decoding(mp3_path, rep="mfcc", model_type='coco'):
+def run_decoding(mp3_path, model_type='coco'):
     import os
     import os.path
     import activations as A
@@ -223,14 +236,19 @@ def run_decoding(mp3_path, rep="mfcc", model_type='coco'):
                        directory + "/embeddings.npy", 
                        accel=model_type == 'flickr8k', 
                        nfft=1024)    
-    if model_type == 'coco':
-        phoneme_train_data(alignment_path="data/coco/dataset.val.fa.json",
-                      dataset_path="data/coco/dataset.json",
+    phoneme_train_data(alignment_path="data/{}/dataset.val.fa.json".format(model_type),
+                      dataset_path="data/{}/dataset.json".format(model_type),
                       model_path=model,
                       max_size=5000,
-                      directory=directory)
-    else:
-        raise NotImplementedError
-    phoneme_test_data(mp3_path=mp3_path, rep_path=directory)
-    print(decoding(rep, directory=directory))
+                      directory=directory,
+                      dataset=model_type)
+    phoneme_test_data(mp3_path=mp3_path, dataset=model_type)
+    if model_type == 'coco':
+        reps = ["mfcc", "conv", "rec0", "rec1", "rec2", "rec3", "rec4"]
+    elif model_type == 'flickr8k':
+        reps = ["mfcc", "conv", "rec0", "rec1", "rec2", "rec3"]
+    print("rep val test")
+    for rep in reps:
+        val, test = decoding(rep, directory=directory, max_size=50000)
+        print("{} {:.3} {:.3}".format(rep, val, test))     
 
